@@ -9,7 +9,8 @@
         "--usb"
       ],
       "env": {
-        "REMARKABLE_OCR_BACKEND": "sampling"
+        "REMARKABLE_OCR_BACKEND": "sampling",
+        "DYLD_FALLBACK_LIBRARY_PATH": "/opt/homebrew/lib:/usr/local/lib"
       }
     }
   }
