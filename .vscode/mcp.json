@@ -1,0 +1,16 @@
+{
+  "servers": {
+    "remarkable": {
+      "command": "uvx",
+      "args": [
+        "--from",
+        "./vendor/remarkable-mcp",
+        "remarkable-mcp",
+        "--usb"
+      ],
+      "env": {
+        "REMARKABLE_OCR_BACKEND": "sampling"
+      }
+    }
+  }
+}

@@ -1,0 +1,3 @@
+[submodule "vendor/remarkable-mcp"]
+	path = vendor/remarkable-mcp
+	url = https://github.com/SamMorrowDrums/remarkable-mcp.git
