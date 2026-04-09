@@ -19,15 +19,25 @@ output/*.md                   ← clean Markdown (or Obsidian vault)
 
 ## Setup
 
+### macOS / Linux
+
 ```bash
 git clone --recurse-submodules git@github.com:jmendoza-10/remarkable-distill.git
 cd remarkable-distill
 ./scripts/setup.sh
 ```
 
+### Windows (PowerShell)
+
+```powershell
+git clone --recurse-submodules git@github.com:jmendoza-10/remarkable-distill.git
+cd remarkable-distill
+.\scripts\setup.ps1
+```
+
 ### reMarkable tablet setup
 
-1. Connect tablet to Mac via USB
+1. Connect tablet to your computer via USB
 2. On tablet: **Settings > Storage > USB web interface** → enable
 
 ## Usage
@@ -46,8 +56,12 @@ Claude will fetch, OCR, distill, and write Markdown files to `output/`.
 
 Set `OUTPUT_DIR` in `.env` to your vault path:
 
-```
+```bash
+# macOS / Linux
 OUTPUT_DIR=/path/to/obsidian-vault/reMarkable
+
+# Windows
+OUTPUT_DIR=C:\Users\you\Documents\obsidian-vault\reMarkable
 ```
 
 ## Configuration

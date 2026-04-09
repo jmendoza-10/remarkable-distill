@@ -57,6 +57,13 @@ Distilled content here...
 - If the user configures an Obsidian vault path, write there instead
 - Track the configured output path in `.env` as `OUTPUT_DIR`
 
+## Cross-Platform
+
+This workflow runs on both macOS and Windows. When writing output paths:
+- Use forward slashes in Markdown links and YAML frontmatter
+- Respect the `OUTPUT_DIR` from `.env` — it may use Windows-style paths
+- The MCP server (uvx) and Python stack work identically on both platforms
+
 ## Conventions
 
 - Do not commit reMarkable auth tokens or credentials
