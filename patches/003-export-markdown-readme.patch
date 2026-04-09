@@ -1,0 +1,42 @@
+diff --git a/README.md b/README.md
+index 9fa9389..9c48f68 100644
+--- a/README.md
++++ b/README.md
+@@ -227,8 +227,9 @@ Or copy the `SKILL.md` from this repository into your `~/.openclaw/skills/remark
+ | `remarkable_recent` | Get recently modified documents |
+ | `remarkable_status` | Check connection status |
+ | `remarkable_image` | Get PNG/SVG images of pages (supports OCR via sampling) |
++| `remarkable_export_markdown` | Export document pages to local Markdown files via OCR |
+ 
+-All tools are **read-only** and return structured JSON with hints for next actions.
++All tools are **read-only** (except `remarkable_export_markdown`) and return structured JSON with hints for next actions.
+ 
+ 📖 **[Full Tools Documentation](docs/tools.md)**
+ 
+@@ -455,6 +456,26 @@ Supported formats:
+ 
+ Default is `#FBFBFB` (reMarkable paper color). This affects both the `remarkable_image` tool and image resources.
+ 
++### Export Directory
++
++Set the default local directory for `remarkable_export_markdown` output:
++
++```json
++{
++  "servers": {
++    "remarkable": {
++      "command": "uvx",
++      "args": ["remarkable-mcp", "--ssh"],
++      "env": {
++        "REMARKABLE_EXPORT_DIR": "/path/to/your/notes"
++      }
++    }
++  }
++}
++```
++
++Default is `~/remarkable-exports/`. The directory is created automatically if it doesn't exist.
++
+ ---
+ 
+ ## Use Cases

@@ -1,0 +1,276 @@
+diff --git a/remarkable_mcp/tools.py b/remarkable_mcp/tools.py
+index e7e5d70..0ea4adc 100644
+--- a/remarkable_mcp/tools.py
++++ b/remarkable_mcp/tools.py
+@@ -9,6 +9,7 @@ import base64
+ import os
+ import re
+ import tempfile
++from datetime import datetime, timezone
+ from pathlib import Path
+ from typing import List, Literal, Optional
+ 
+@@ -150,6 +151,14 @@ IMAGE_ANNOTATIONS = ToolAnnotations(
+     **_BASE_ANNOTATIONS,
+ )
+ 
++EXPORT_ANNOTATIONS = ToolAnnotations(
++    title="Export reMarkable Document to Markdown",
++    readOnlyHint=False,
++    destructiveHint=False,
++    idempotentHint=True,
++    openWorldHint=False,
++)
++
+ # Default page size for pagination (characters) - used for PDFs/EPUBs
+ DEFAULT_PAGE_SIZE = 8000
+ 
+@@ -1655,3 +1664,248 @@ async def remarkable_image(
+             message=str(e),
+             suggestion="Check remarkable_status() to verify your connection.",
+         )
++
++
++def _slugify(text: str) -> str:
++    """Convert text to a filesystem-safe slug."""
++    text = re.sub(r"[^\w\s-]", "", text)
++    text = re.sub(r"[\s_]+", "-", text.strip())
++    return text
++
++
++def _detect_handwritten_date(ocr_text: str) -> Optional[str]:
++    """Try to extract a date from OCR text. Returns YYYY-MM-DD or None."""
++    if not ocr_text:
++        return None
++    # Match common handwritten date patterns
++    patterns = [
++        # MM/DD/YYYY or M/D/YYYY
++        (r"\b(\d{1,2})/(\d{1,2})/(\d{4})\b", lambda m: f"{m.group(3)}-{int(m.group(1)):02d}-{int(m.group(2)):02d}"),
++        # MM/DD/YY or M/D/YY
++        (r"\b(\d{1,2})/(\d{1,2})/(\d{2})\b", lambda m: f"20{m.group(3)}-{int(m.group(1)):02d}-{int(m.group(2)):02d}"),
++        # YYYY-MM-DD
++        (r"\b(\d{4})-(\d{1,2})-(\d{1,2})\b", lambda m: f"{m.group(1)}-{int(m.group(2)):02d}-{int(m.group(3)):02d}"),
++    ]
++    for pattern, formatter in patterns:
++        match = re.search(pattern, ocr_text)
++        if match:
++            try:
++                result = formatter(match)
++                # Validate it parses
++                datetime.strptime(result, "%Y-%m-%d")
++                return result
++            except ValueError:
++                continue
++    return None
++
++
++def _get_doc_date(target_doc) -> str:
++    """Get a YYYY-MM-DD date from the document's ModifiedClient timestamp."""
++    if hasattr(target_doc, "ModifiedClient") and target_doc.ModifiedClient:
++        mod = target_doc.ModifiedClient
++        if isinstance(mod, str):
++            return mod[:10]
++        if isinstance(mod, (int, float)):
++            return datetime.fromtimestamp(mod / 1000, tz=timezone.utc).strftime("%Y-%m-%d")
++        if hasattr(mod, "strftime"):
++            return mod.strftime("%Y-%m-%d")
++    return datetime.now(tz=timezone.utc).strftime("%Y-%m-%d")
++
++
++@mcp.tool(annotations=EXPORT_ANNOTATIONS)
++async def remarkable_export_markdown(
++    document: str,
++    pages: Optional[List[int]] = None,
++    export_dir: Optional[str] = None,
++    include_raw_image: bool = False,
++    overwrite: bool = False,
++    ctx: Optional[Context] = None,
++) -> str:
++    """Export a reMarkable document to local Markdown files using OCR.
++
++    Renders each page as an image, runs OCR via the sampling backend (client's LLM),
++    and writes one .md file per page with a frontmatter header.
++
++    Args:
++        document: Document name or path on the reMarkable.
++        pages: Optional list of specific page numbers to export (1-indexed).
++               Default exports all pages.
++        export_dir: Local directory to write files to.
++                    Default: REMARKABLE_EXPORT_DIR env var or ~/remarkable-exports/
++        include_raw_image: Also save the rendered .png alongside each .md file.
++        overwrite: Overwrite existing files. Default False (skip existing).
++        ctx: MCP context (injected automatically).
++
++    Returns:
++        JSON with files_written, export_dir, and page_count.
++
++    Examples:
++        remarkable_export_markdown("Cloud Sync")
++        remarkable_export_markdown("Meeting Notes", pages=[1, 2, 3])
++        remarkable_export_markdown("Journal", include_raw_image=True)
++    """
++    try:
++        client = get_rmapi()
++        collection = client.get_meta_items()
++        items_by_id = get_items_by_id(collection)
++
++        root = _get_root_path()
++        actual_document = _resolve_root_path(document) if document.startswith("/") else document
++
++        # Find the document
++        documents = [item for item in collection if not item.is_folder]
++        target_doc = None
++        document_lower = actual_document.lower().strip("/")
++
++        for doc in documents:
++            doc_path = get_item_path(doc, items_by_id)
++            if not _is_within_root(doc_path, root):
++                continue
++            if doc.VissibleName.lower() == document_lower:
++                target_doc = doc
++                break
++            if doc_path.lower().strip("/") == document_lower:
++                target_doc = doc
++                break
++
++        if not target_doc:
++            filtered_docs = [
++                doc for doc in documents if _is_within_root(get_item_path(doc, items_by_id), root)
++            ]
++            similar = find_similar_documents(document, filtered_docs)
++            search_term = document.split()[0] if document else "notes"
++            return make_error(
++                error_type="document_not_found",
++                message=f"Document not found: '{document}'",
++                suggestion=(
++                    f"Try remarkable_browse(query='{search_term}') to search, "
++                    "or remarkable_browse('/') to list all files."
++                ),
++                did_you_mean=similar if similar else None,
++            )
++
++        doc_path = get_item_path(target_doc, items_by_id)
++        folder_part = str(Path(doc_path).parent).strip("/")
++        doc_name = target_doc.VissibleName
++
++        # Resolve export directory
++        if export_dir is None:
++            export_dir = os.environ.get(
++                "REMARKABLE_EXPORT_DIR",
++                os.path.expanduser("~/remarkable-exports"),
++            )
++        export_path = Path(export_dir).expanduser()
++        export_path.mkdir(parents=True, exist_ok=True)
++
++        # Download and get page count
++        raw_doc = client.download(target_doc)
++        with tempfile.NamedTemporaryFile(suffix=".zip", delete=False) as tmp:
++            tmp.write(raw_doc)
++            tmp_path = Path(tmp.name)
++
++        try:
++            total_pages = get_document_page_count(tmp_path)
++            if total_pages == 0:
++                return make_error(
++                    error_type="no_pages",
++                    message=f"Document '{doc_name}' has no renderable pages.",
++                    suggestion="Use remarkable_read() to extract text from PDFs/EPUBs.",
++                )
++
++            # Determine which pages to export
++            if pages is not None:
++                page_list = sorted(set(pages))
++                invalid = [p for p in page_list if p < 1 or p > total_pages]
++                if invalid:
++                    return make_error(
++                        error_type="page_out_of_range",
++                        message=f"Pages {invalid} out of range. Document has {total_pages} page(s).",
++                        suggestion=f"Use pages=[1..{total_pages}].",
++                    )
++            else:
++                page_list = list(range(1, total_pages + 1))
++
++            # Build slug from folder + doc name
++            path_slug = _slugify(f"{folder_part}-{doc_name}" if folder_part else doc_name)
++            fallback_date = _get_doc_date(target_doc)
++            today = datetime.now(tz=timezone.utc).strftime("%Y-%m-%d")
++
++            files_written = []
++            skipped = []
++
++            background = get_background_color()
++
++            for page_num in page_list:
++                # Render the page
++                png_data = render_page_from_document_zip(tmp_path, page_num, background)
++                if png_data is None:
++                    continue
++
++                # OCR via sampling
++                ocr_text = None
++                ocr_backend_used = None
++                if ctx and should_use_sampling_ocr(ctx):
++                    ocr_text = await ocr_via_sampling(ctx, png_data)
++                    if ocr_text:
++                        ocr_backend_used = "sampling"
++                        cache_page_ocr(target_doc.ID, page_num, "sampling", ocr_text)
++
++                # Determine date for filename
++                page_date = _detect_handwritten_date(ocr_text) if ocr_text else None
++                if page_date is None:
++                    page_date = fallback_date
++
++                # Build filenames
++                base_name = f"{page_date}_{path_slug}_page-{page_num}"
++                md_path = export_path / f"{base_name}.md"
++                png_path = export_path / f"{base_name}.png"
++
++                # Check overwrite
++                if md_path.exists() and not overwrite:
++                    skipped.append(str(md_path))
++                    continue
++
++                # Build frontmatter + body
++                body = ocr_text if ocr_text else "_No text detected on this page._"
++                md_content = (
++                    f"# {doc_name} — Page {page_num}\n"
++                    f"**Source:** `{doc_path}`\n"
++                    f"**Page:** {page_num} of {total_pages}\n"
++                    f"**Date on Note:** {page_date}\n"
++                    f"**Exported:** {today}\n\n"
++                    f"{body}\n"
++                )
++
++                md_path.write_text(md_content, encoding="utf-8")
++                files_written.append(str(md_path))
++
++                # Optionally write PNG
++                if include_raw_image and png_data:
++                    png_path.write_bytes(png_data)
++                    files_written.append(str(png_path))
++
++        finally:
++            tmp_path.unlink(missing_ok=True)
++
++        result = {
++            "document": doc_name,
++            "source_path": doc_path,
++            "export_dir": str(export_path),
++            "page_count": len(page_list),
++            "files_written": files_written,
++        }
++        if skipped:
++            result["skipped_existing"] = skipped
++
++        hint = (
++            f"Exported {len([f for f in files_written if f.endswith('.md')])} page(s) "
++            f"from '{doc_name}' to {export_path}"
++        )
++        return make_response(result, hint)
++
++    except Exception as e:
++        return make_error(
++            error_type="export_failed",
++            message=str(e),
++            suggestion="Check remarkable_status() to verify your connection.",
++        )
