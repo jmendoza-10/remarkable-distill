@@ -1,0 +1,32 @@
+diff --git a/remarkable_mcp/extract.py b/remarkable_mcp/extract.py
+index e229dac..e662f77 100644
+--- a/remarkable_mcp/extract.py
++++ b/remarkable_mcp/extract.py
+@@ -563,14 +563,19 @@ def render_rm_file_to_png(
+         with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tmp_png:
+             tmp_png_path = Path(tmp_png.name)
+ 
+-        # Convert .rm to SVG using rmc
+-        result = subprocess.run(
+-            ["rmc", "-t", "svg", "-o", str(tmp_svg_path), str(rm_file_path)],
+-            capture_output=True,
+-            timeout=30,
+-        )
+-        if result.returncode != 0:
+-            # Try v5 fallback renderer, then v6
++        # Convert .rm to SVG — try rmc first, then Python fallback renderers
++        rmc_ok = False
++        try:
++            result = subprocess.run(
++                ["rmc", "-t", "svg", "-o", str(tmp_svg_path), str(rm_file_path)],
++                capture_output=True,
++                timeout=30,
++            )
++            rmc_ok = result.returncode == 0
++        except (FileNotFoundError, subprocess.TimeoutExpired):
++            pass  # rmc not installed or timed out — fall through to Python renderers
++
++        if not rmc_ok:
+             svg_content = _render_rm_v5_to_svg(rm_file_path) or _render_rm_v6_to_svg(rm_file_path)
+             if svg_content is None:
+                 return None
