@@ -36,9 +36,16 @@ if (-not (Test-Path "$ProjectDir\.env")) {
 
 Pop-Location
 
-# 5. Generate ready-to-use Claude Desktop config
+# 5. Resolve full path to uvx for Claude Desktop (it doesn't inherit shell PATH)
+$UvxPath = (Get-Command uvx -ErrorAction SilentlyContinue).Source
+if (-not $UvxPath) { $UvxPath = "$env:USERPROFILE\.local\bin\uvx.exe" }
+$UvxPathForJson = $UvxPath -replace '\\', '/'
+
+# 6. Generate ready-to-use Claude Desktop config snippet
 $template = Get-Content "$ProjectDir\claude-desktop-config.json" -Raw
-$localConfig = $template -replace '/FULL/PATH/TO/remarkable-distill', ($ProjectDir -replace '\\', '/')
+$ProjectDirForJson = $ProjectDir -replace '\\', '/'
+$localConfig = $template -replace '/FULL/PATH/TO/remarkable-distill', $ProjectDirForJson
+$localConfig = $localConfig -replace '/FULL/PATH/TO/uvx', $UvxPathForJson
 $localConfigPath = "$ProjectDir\.claude-desktop-config-local.json"
 Set-Content -Path $localConfigPath -Value $localConfig
 
@@ -56,8 +63,22 @@ Write-Host "       (MCP config is already set in .vscode/mcp.json)"
 Write-Host ""
 Write-Host "  Option B - Claude Desktop:"
 Write-Host "    3. In Claude Desktop: Settings (gear icon) > Developer > Edit Config"
-Write-Host "    4. Paste the following into the config file that opens:"
+Write-Host "       This opens your claude_desktop_config.json file."
+Write-Host ""
+Write-Host "    4. Add the 'remarkable' server to the 'mcpServers' section."
+Write-Host "       If the file already has content, MERGE - don't replace."
+Write-Host ""
+Write-Host "       If the file is empty or has only {}, paste this entire block:"
 Write-Host ""
 Write-Host $localConfig
+Write-Host ""
+Write-Host "       If the file already has an 'mcpServers' section, add just this"
+Write-Host "       entry inside it (after the opening brace, with a comma separator):"
+Write-Host ""
+Write-Host "        `"remarkable`": {"
+Write-Host "          `"command`": `"$UvxPathForJson`","
+Write-Host "          `"args`": [`"--from`", `"$ProjectDirForJson/vendor/remarkable-mcp`", `"remarkable-mcp`", `"--usb`"],"
+Write-Host "          `"env`": { `"REMARKABLE_OCR_BACKEND`": `"sampling`" }"
+Write-Host "        }"
 Write-Host ""
 Write-Host "    5. Save the file and restart Claude Desktop."

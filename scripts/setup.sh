@@ -36,8 +36,12 @@ if [ ! -f "$PROJECT_DIR/.env" ]; then
     echo "Created .env from .env.example — edit it to set OUTPUT_DIR if desired."
 fi
 
-# 5. Generate ready-to-use Claude Desktop config
-sed "s|/FULL/PATH/TO/remarkable-distill|$PROJECT_DIR|g" \
+# 5. Resolve full path to uvx for Claude Desktop (it doesn't inherit shell PATH)
+UVX_PATH="$(command -v uvx 2>/dev/null || echo "$HOME/.local/bin/uvx")"
+
+# 6. Generate ready-to-use Claude Desktop config snippet
+sed -e "s|/FULL/PATH/TO/remarkable-distill|$PROJECT_DIR|g" \
+    -e "s|/FULL/PATH/TO/uvx|$UVX_PATH|g" \
     "$PROJECT_DIR/claude-desktop-config.json" > "$PROJECT_DIR/.claude-desktop-config-local.json"
 
 echo ""
@@ -54,8 +58,22 @@ echo "       (MCP config is already set in .vscode/mcp.json)"
 echo ""
 echo "  Option B — Claude Desktop:"
 echo "    3. In Claude Desktop: Settings (gear icon) > Developer > Edit Config"
-echo "    4. Paste the following into the config file that opens:"
+echo "       This opens your claude_desktop_config.json file."
+echo ""
+echo "    4. Add the \"remarkable\" server to the \"mcpServers\" section."
+echo "       If the file already has content, MERGE — don't replace."
+echo ""
+echo "       If the file is empty or has only {}, paste this entire block:"
 echo ""
 cat "$PROJECT_DIR/.claude-desktop-config-local.json"
+echo ""
+echo "       If the file already has an \"mcpServers\" section, add just this"
+echo "       entry inside it (after the opening brace, with a comma separator):"
+echo ""
+echo "        \"remarkable\": {"
+echo "          \"command\": \"$UVX_PATH\","
+echo "          \"args\": [\"--from\", \"$PROJECT_DIR/vendor/remarkable-mcp\", \"remarkable-mcp\", \"--usb\"],"
+echo "          \"env\": { \"REMARKABLE_OCR_BACKEND\": \"sampling\" }"
+echo "        }"
 echo ""
 echo "    5. Save the file and restart Claude Desktop."

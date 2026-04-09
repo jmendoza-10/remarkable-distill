@@ -1,7 +1,7 @@
 {
   "mcpServers": {
     "remarkable": {
-      "command": "uvx",
+      "command": "/FULL/PATH/TO/uvx",
       "args": [
         "--from",
         "/FULL/PATH/TO/remarkable-distill/vendor/remarkable-mcp",
