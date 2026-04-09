@@ -36,6 +36,12 @@ if (-not (Test-Path "$ProjectDir\.env")) {
 
 Pop-Location
 
+# 5. Generate ready-to-use Claude Desktop config
+$template = Get-Content "$ProjectDir\claude-desktop-config.json" -Raw
+$localConfig = $template -replace '/FULL/PATH/TO/remarkable-distill', ($ProjectDir -replace '\\', '/')
+$localConfigPath = "$ProjectDir\.claude-desktop-config-local.json"
+Set-Content -Path $localConfigPath -Value $localConfig
+
 Write-Host ""
 Write-Host "=== Setup complete ==="
 Write-Host ""
@@ -49,9 +55,9 @@ Write-Host '    4. Ask Claude: "process my latest reMarkable notes"'
 Write-Host "       (MCP config is already set in .vscode/mcp.json)"
 Write-Host ""
 Write-Host "  Option B - Claude Desktop:"
-Write-Host "    3. Copy the contents of claude-desktop-config.json into your Claude Desktop config:"
-Write-Host "       macOS:   ~/Library/Application Support/Claude/claude_desktop_config.json"
-Write-Host "       Windows: %APPDATA%\Claude\claude_desktop_config.json"
-Write-Host "    4. Replace /FULL/PATH/TO/remarkable-distill with: $ProjectDir"
-Write-Host '    5. Restart Claude Desktop, then ask: "process my latest reMarkable notes"'
-Write-Host "       (Note: Claude Desktop outputs markdown in chat - copy it to your notes app)"
+Write-Host "    3. In Claude Desktop: Settings (gear icon) > Developer > Edit Config"
+Write-Host "    4. Paste the following into the config file that opens:"
+Write-Host ""
+Write-Host $localConfig
+Write-Host ""
+Write-Host "    5. Save the file and restart Claude Desktop."

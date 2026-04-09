@@ -36,6 +36,10 @@ if [ ! -f "$PROJECT_DIR/.env" ]; then
     echo "Created .env from .env.example — edit it to set OUTPUT_DIR if desired."
 fi
 
+# 5. Generate ready-to-use Claude Desktop config
+sed "s|/FULL/PATH/TO/remarkable-distill|$PROJECT_DIR|g" \
+    "$PROJECT_DIR/claude-desktop-config.json" > "$PROJECT_DIR/.claude-desktop-config-local.json"
+
 echo ""
 echo "=== Setup complete ==="
 echo ""
@@ -49,9 +53,9 @@ echo "    4. Ask Claude: \"process my latest reMarkable notes\""
 echo "       (MCP config is already set in .vscode/mcp.json)"
 echo ""
 echo "  Option B — Claude Desktop:"
-echo "    3. Copy the contents of claude-desktop-config.json into your Claude Desktop config:"
-echo "       macOS:   ~/Library/Application Support/Claude/claude_desktop_config.json"
-echo "       Windows: %APPDATA%\\Claude\\claude_desktop_config.json"
-echo "    4. Replace /FULL/PATH/TO/remarkable-distill with: $PROJECT_DIR"
-echo "    5. Restart Claude Desktop, then ask: \"process my latest reMarkable notes\""
-echo "       (Note: Claude Desktop outputs markdown in chat — copy it to your notes app)"
+echo "    3. In Claude Desktop: Settings (gear icon) > Developer > Edit Config"
+echo "    4. Paste the following into the config file that opens:"
+echo ""
+cat "$PROJECT_DIR/.claude-desktop-config-local.json"
+echo ""
+echo "    5. Save the file and restart Claude Desktop."

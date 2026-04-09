@@ -4,3 +4,4 @@ __pycache__/
 .venv/
 output/*.md
 !output/.gitkeep
+.claude-desktop-config-local.json
