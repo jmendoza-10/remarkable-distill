@@ -35,6 +35,14 @@ cd remarkable-distill
 .\scripts\setup.ps1
 ```
 
+### System dependencies
+
+The setup script handles these automatically, but if you hit issues:
+
+- **macOS:** `brew install cairo` (required for rendering notebook pages)
+- **Linux:** `sudo apt install libcairo2-dev`
+- **Windows:** Cairo is bundled with the Python package — no extra install needed
+
 ### reMarkable tablet setup
 
 1. Connect tablet to your computer via USB
