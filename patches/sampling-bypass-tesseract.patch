@@ -1,0 +1,72 @@
+diff --git a/remarkable_mcp/extract.py b/remarkable_mcp/extract.py
+index f867242..e229dac 100644
+--- a/remarkable_mcp/extract.py
++++ b/remarkable_mcp/extract.py
+@@ -1084,10 +1084,11 @@ def extract_handwriting_ocr(rm_files: List[Path]) -> tuple[Optional[List[str]],
+ 
+     backend = os.environ.get("REMARKABLE_OCR_BACKEND", "auto").lower()
+ 
+-    # Sampling backend requires async context - can't be used from sync functions
+-    # Fall back to auto-detection for resources and other sync callers
++    # Sampling backend requires async context - can't be used from sync functions.
++    # Don't fall back to tesseract/google; sampling OCR is handled in the async
++    # tool layer. Return None so callers know OCR wasn't performed here.
+     if backend == "sampling":
+-        backend = "auto"
++        return (None, None)
+ 
+     # Auto-detect best available backend
+     if backend == "auto":
+diff --git a/remarkable_mcp/tools.py b/remarkable_mcp/tools.py
+index 9295872..e7e5d70 100644
+--- a/remarkable_mcp/tools.py
++++ b/remarkable_mcp/tools.py
+@@ -1567,27 +1567,27 @@ async def remarkable_image(
+ 
+                     # Fall back to traditional OCR if sampling failed or not available
+                     if ocr_text is None:
+-                        # Need to temporarily save PNG to file for tesseract/google
+-                        with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as ocr_tmp:
+-                            ocr_tmp.write(png_data)
+-                            ocr_tmp_path = Path(ocr_tmp.name)
+-                        try:
+-                            backend = get_ocr_backend()
+-                            # When backend is "sampling" but sampling failed, fall through to
+-                            # Google (if API key available) or Tesseract as per documented behavior
+-                            if backend in ("sampling", "google") or (
+-                                backend == "auto" and os.environ.get("GOOGLE_VISION_API_KEY")
+-                            ):
+-                                ocr_text = _ocr_png_google_vision(ocr_tmp_path)
+-                                if ocr_text:
+-                                    ocr_backend_used = "google"
+-                            # Fall through to Tesseract if Google not available or returned None
+-                            if ocr_text is None:
+-                                ocr_text = _ocr_png_tesseract(ocr_tmp_path)
+-                                if ocr_text:
+-                                    ocr_backend_used = "tesseract"
+-                        finally:
+-                            ocr_tmp_path.unlink(missing_ok=True)
++                        backend = get_ocr_backend()
++                        # When backend is "sampling", OCR is done exclusively via
++                        # MCP sampling (above). Don't fall back to tesseract/google.
++                        if backend != "sampling":
++                            # Need to temporarily save PNG to file for tesseract/google
++                            with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as ocr_tmp:
++                                ocr_tmp.write(png_data)
++                                ocr_tmp_path = Path(ocr_tmp.name)
++                            try:
++                                if backend == "google" or (
++                                    backend == "auto" and os.environ.get("GOOGLE_VISION_API_KEY")
++                                ):
++                                    ocr_text = _ocr_png_google_vision(ocr_tmp_path)
++                                    if ocr_text:
++                                        ocr_backend_used = "google"
++                                if ocr_text is None:
++                                    ocr_text = _ocr_png_tesseract(ocr_tmp_path)
++                                    if ocr_text:
++                                        ocr_backend_used = "tesseract"
++                            finally:
++                                ocr_tmp_path.unlink(missing_ok=True)
+ 
+                 resource_uri = f"remarkableimg:///{uri_path}.page-{page}.png"
+                 png_base64 = base64.b64encode(png_data).decode("utf-8")

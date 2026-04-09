@@ -15,7 +15,7 @@ cd "$PROJECT_DIR"
 git submodule update --init --recursive
 
 # 2. Install system dependencies
-echo "[2/4] Installing system dependencies..."
+echo "[2/5] Installing system dependencies..."
 if [[ "$(uname)" == "Darwin" ]]; then
     if ! command -v brew &>/dev/null; then
         echo "  Homebrew not found — install it from https://brew.sh"
@@ -34,17 +34,29 @@ fi
 
 # 3. Check for uv
 if ! command -v uv &>/dev/null; then
-    echo "[3/4] Installing uv..."
+    echo "[3/5] Installing uv..."
     curl -LsSf https://astral.sh/uv/install.sh | sh
     # Add uv to PATH for the rest of this script
     export PATH="$HOME/.local/bin:$PATH"
 else
-    echo "[3/4] uv already installed: $(uv --version)"
+    echo "[3/5] uv already installed: $(uv --version)"
 fi
 
-# 4. Install remarkable-mcp dependencies
-echo "[4/4] Installing remarkable-mcp dependencies..."
+# 4. Apply local patches to remarkable-mcp
+echo "[4/5] Applying local patches..."
 cd "$PROJECT_DIR/vendor/remarkable-mcp"
+for patch in "$PROJECT_DIR"/patches/*.patch; do
+    [ -f "$patch" ] || continue
+    if git apply --check "$patch" 2>/dev/null; then
+        git apply "$patch"
+        echo "  Applied $(basename "$patch")"
+    else
+        echo "  Skipped $(basename "$patch") (already applied or conflicts)"
+    fi
+done
+
+# 5. Install remarkable-mcp dependencies
+echo "[5/5] Installing remarkable-mcp dependencies..."
 uv sync --all-extras
 
 # 5. Create .env if missing
