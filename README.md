@@ -40,7 +40,23 @@ cd remarkable-distill
 1. Connect tablet to your computer via USB
 2. On tablet: **Settings > Storage > USB web interface** → enable
 
+## Claude Desktop Setup
+
+Claude Desktop uses a separate MCP config. Edit your `claude_desktop_config.json`:
+
+- **macOS:** `~/Library/Application Support/Claude/claude_desktop_config.json`
+- **Windows:** `%APPDATA%\Claude\claude_desktop_config.json`
+
+Copy the contents of `claude-desktop-config.json` from this repo and replace
+`/FULL/PATH/TO/remarkable-distill` with the actual absolute path to this repo.
+
+> **Note:** Claude Desktop can fetch, OCR, and distill your notes, but it cannot write
+> files to disk directly. It will output the distilled Markdown in the chat for you to
+> copy. For the full end-to-end workflow (automatic file writing), use Claude Code.
+
 ## Usage
+
+### Claude Code
 
 Open this project in Claude Code, then:
 
@@ -51,6 +67,17 @@ Open this project in Claude Code, then:
 ```
 
 Claude will fetch, OCR, distill, and write Markdown files to `output/`.
+
+### Claude Desktop
+
+Open a conversation with the remarkable MCP server enabled, then:
+
+```
+process my latest reMarkable notes
+```
+
+Claude will fetch, OCR, and distill the notes. Copy the output Markdown from the
+chat into your notes app or Obsidian vault.
 
 ### Output to Obsidian
 
