@@ -18,6 +18,8 @@ git submodule update --init --recursive
 if ! command -v uv &>/dev/null; then
     echo "[2/3] Installing uv..."
     curl -LsSf https://astral.sh/uv/install.sh | sh
+    # Add uv to PATH for the rest of this script
+    export PATH="$HOME/.local/bin:$PATH"
 else
     echo "[2/3] uv already installed: $(uv --version)"
 fi
